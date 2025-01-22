@@ -37,6 +37,10 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+    @property
+    def is_moderator(self) -> bool:
+        return self.groups.filter(name='Модераторы').exists()  # Проверяет, в группе ли "Модераторы"
+
 
 class Payment(models.Model):
     PAYMENT_METHODS = [
