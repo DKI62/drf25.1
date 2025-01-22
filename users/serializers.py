@@ -14,4 +14,9 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['id', 'email', 'phone', 'city', 'avatar', 'payments']
-        read_only_fields = ['email']
+        read_only_fields = ['id', 'payments']
+
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        return value
