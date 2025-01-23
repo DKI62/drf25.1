@@ -2,7 +2,7 @@ from rest_framework import generics, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 
-from users.permissions import IsModerator, IsOwner, IsOwnerOrModerator
+from users.permissions import IsModerator, IsOwner
 from .models import Lesson, Course
 from .serializers import LessonSerializer, CourseSerializer
 
@@ -25,14 +25,9 @@ class LessonListCreateView(generics.ListCreateAPIView):
         serializer.save(owner=self.request.user)
 
     def get_permissions(self):
-        if self.request.method == 'POST':
-            # Проверяем, что пользователь НЕ модератор
-            if self.request.user.groups.filter(name='Модераторы').exists():
-                self.permission_denied(
-                    self.request,
-                    message="Moderators are not allowed to create lessons."
-                )
-        return [IsAuthenticated()]
+        if self.request.method == 'POST' and self.request.user.is_moderator:
+            raise PermissionDenied("Модераторам запрещено создавать уроки.")
+        return super().get_permissions()
 
 
 class LessonDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -42,14 +37,11 @@ class LessonDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_permissions(self):
         if self.request.method in ['PATCH', 'PUT']:
-            # Проверяем на владельца или модератора
-            self.permission_classes = [IsAuthenticated, IsOwnerOrModerator]
+            # Разрешаем редактирование владельцам и модераторам
+            self.permission_classes = [IsOwner | IsModerator]
         elif self.request.method == 'DELETE':
-            # Удалять может только владелец
-            self.permission_classes = [IsAuthenticated, IsOwner]
-        else:
-            # Для всех остальных методов
-            self.permission_classes = [IsAuthenticated]
+            # Удаление разрешено только владельцам
+            self.permission_classes = [IsOwner]
         return [permission() for permission in self.permission_classes]
 
     def perform_create(self, serializer):
@@ -71,17 +63,21 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_moderator:  # Используем свойство `is_moderator`
+        if user.is_moderator:
             return Course.objects.all()
         return Course.objects.filter(owner=user)
 
     def get_permissions(self):
         if self.action == 'create':
-            if self.request.user.is_moderator:  # Модераторам запрещено создавать
-                return [IsAuthenticated()]
-            return [IsAuthenticated()]
+            # Модераторам запрещено создавать
+            if self.request.user.is_moderator:
+                raise PermissionDenied("Модераторам запрещено создавать курсы.")
         elif self.action in ['update', 'partial_update']:
-            return [IsOwnerOrModerator()]  # Только владелец или модератор
+            # Только владелец или модератор
+            self.permission_classes = [IsOwner | IsModerator]
         elif self.action == 'destroy':
-            return [IsOwner()]  # Только владелец
-        return [IsAuthenticated()]
+            # Удаление разрешено только владельцам
+            self.permission_classes = [IsOwner]
+        else:
+            self.permission_classes = [IsAuthenticated]
+        return [permission() for permission in self.permission_classes]
