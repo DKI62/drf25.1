@@ -14,8 +14,13 @@ psycopg2-binary = "^2.9.10"
 pillow = "^11.1.0"
 django-filter = "^24.3"
 djangorestframework-simplejwt = "^5.4.0"
+pytest = "^8.3.4"
+pytest-django = "^4.9.0"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+django_settings_module = "config.settings"

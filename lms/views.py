@@ -1,15 +1,19 @@
-from rest_framework import generics, viewsets
+from rest_framework import generics, viewsets, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from users.permissions import IsModerator, IsOwner
-from .models import Lesson, Course
+from .models import Lesson, Course, Subscription
+from .paginators import LessonPagination, CoursePagination
 from .serializers import LessonSerializer, CourseSerializer
 
 
 class LessonListCreateView(generics.ListCreateAPIView):
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
+    pagination_class = LessonPagination
 
     def get_queryset(self):
         """
@@ -51,6 +55,7 @@ class LessonDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
+    pagination_class = CoursePagination
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -81,3 +86,28 @@ class CourseViewSet(viewsets.ModelViewSet):
         else:
             self.permission_classes = [IsAuthenticated]
         return [permission() for permission in self.permission_classes]
+
+
+class SubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        course_id = request.data.get('course_id')  # Получаем ID курса
+        if not course_id:
+            return Response({"message": "Course ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        course = Course.objects.filter(id=course_id).first()
+        if not course:
+            return Response({"message": "Course not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Проверка, есть ли уже подписка
+        subscription, created = Subscription.objects.get_or_create(user=user, course=course)
+        if created:
+            message = 'Subscription added.'
+        else:
+            # Если подписка существует, удаляем ее
+            subscription.delete()
+            message = 'Subscription removed.'
+
+        return Response({"message": message}, status=status.HTTP_200_OK)
