@@ -1,12 +1,14 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import stripe
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY')
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 
 DEBUG = True
 
@@ -20,9 +22,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    'drf_yasg',
     'rest_framework',
     'users',
     'lms',
+
 ]
 
 REST_FRAMEWORK = {
